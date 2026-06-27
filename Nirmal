@@ -1,0 +1,54 @@
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+from sklearn.ensemble import IsolationForest
+from sklearn.preprocessing import StandardScaler
+
+# 1. Dummy Network Data Generate Karna
+# Normal Traffic: Low packet size, normal request rate
+np.random.seed(42)
+normal_traffic = np.random.normal(loc=50, scale=10, size=(100, 2)) # [Packet Size, Requests/sec]
+
+# Abnormal/Anomaly Traffic: High packet size ya bohot zyada requests (e.g., DDoS attack)
+anomalies = np.random.uniform(low=120, high=200, size=(10, 2))
+
+# Data ko combine karna
+network_data = np.vstack([normal_traffic, anomalies])
+df = pd.DataFrame(network_data, columns=['Packet_Size_KB', 'Requests_Per_Sec'])
+
+print("--- Initial Data Shape ---")
+print(f"Total Rows: {df.shape[0]} (100 Normal + 10 Anomalies)\n")
+
+# 2. Data Preprocessing (Scaling)
+scaler = StandardScaler()
+scaled_data = scaler.fit_transform(df)
+
+# 3. Isolation Forest Model Train Karna
+# contamination=0.09 matlab hume lagta hai data me ~9% anomalies hain
+model = IsolationForest(contamination=0.09, random_state=42)
+model.fit(scaled_data)
+
+# 4. Predictions Rules:
+#  1 = Normal Traffic
+# -1 = Anomaly (Attack/Fault)
+df['Anomaly_Score'] = model.predict(scaled_data)
+df['Status'] = df['Anomaly_Score'].map({1: 'Normal', -1: 'Anomaly'})
+
+# Results Dekhna
+print("--- Detection Results ---")
+print(df['Status'].value_counts())
+
+# 5. Visualizing the Anomalies (Graph)
+plt.figure(figsize=(10, 6))
+normal_df = df[df['Status'] == 'Normal']
+anomaly_df = df[df['Status'] == 'Anomaly']
+
+plt.scatter(normal_df['Packet_Size_KB'], normal_df['Requests_Per_Sec'], c='blue', label='Normal Traffic', edgecolors='k')
+plt.scatter(anomaly_df['Packet_Size_KB'], anomaly_df['Requests_Per_Sec'], c='red', label='Anomaly/Attack', edgecolors='k', s=100)
+
+plt.title('AI-Driven Network Anomaly Detection')
+plt.xlabel('Packet Size (KB)')
+plt.ylabel('Requests Per Second')
+plt.legend()
+plt.grid(True)
+plt.show()
